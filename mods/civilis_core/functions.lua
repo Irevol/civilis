@@ -1,24 +1,37 @@
 function civ.is_around(pos, targetname)
-	local found = false
+	local found = 0
 	pos.x = pos.x - 1
 	if minetest.get_node(pos).name == targetname then
-		found = true
+		found = found+1
 	end
 	pos.x = pos.x + 2
 	if minetest.get_node(pos).name == targetname then
-		found = true
+		found = found+1
 	end
 	pos.x = pos.x - 1
 	pos.z = pos.z - 1
 	if minetest.get_node(pos).name == targetname then
-		found = true
+		found = found+1
 	end
 	pos.z = pos.z + 2
 	if minetest.get_node(pos).name == targetname then
-		found = true
+		found = found+1
 	end
 	pos.z = pos.z - 1
 	return found
+end
+
+function civ.get_surrounding_structs(pos, radius)
+	local structs = {}
+	for x = -radius, radius do
+		for z = -radius, radius do
+			local check_pos = { x = pos.x + x, y = pos.y, z = pos.z + z }
+			if civ.is_structure(check_pos) then
+				table.insert(structs, minetest.get_node(check_pos).name)
+			end
+		end
+	end
+	return structs
 end
 
 function civ.change_resource_rate(resource, amount)
@@ -27,16 +40,21 @@ function civ.change_resource_rate(resource, amount)
 	minetest.chat_send_all("hmm")
 end
 
+function civ.get_resource_rate(resource)
+	local basemeta = minetest.get_meta(minetest.deserialize(data:get_string("basepos")))
+	return basemeta:get_float(resource .. "rate")
+end
+
 function civ.highlight(text)
 	return minetest.colorize("yellow", text)
 end
 
 function civ.is_around_water(pos)
-	return (civ.is_around({ x = pos.x, y = pos.y - 1, z = pos.z }, c .. "water") or civ.is_around(pos, c .. "well"))
+	return civ.is_around(pointed_thing.above, c .. "water") + civ.is_around(pointed_thing.above, c .. "well")
 end
 
 function civ.is_around_cliff(pos)
-	return (civ.is_around(pos, c .. "stonegrass") or civ.is_around(pos, c .. "stoneblock"))
+	return (civ.is_around(pos, c .. "stonegrass") + civ.is_around(pos, c .. "stoneblock"))
 end
 
 function civ.update_node(pos)
@@ -69,10 +87,36 @@ function civ.register_material(name, description, image)
 	minetest.register_craftitem(name, {
 		description = description,
 		inventory_image = image,
-		stack_max = 100000,
+		stack_max = 1000000,
 	})
 	table.insert(civ.materials, name)
 end
+
+--[[
+civ.register_structure(def)
+	local desc
+	for node_name, amount in pairs(def.location_requirements) do
+		desc = desc..civ.highlight(minetest.registered_items[node_name].description)
+	end
+	minetest.register_node(c .. def.name, {
+		description = civ.highlight("Crystal Mine") .. "\n\n\t Must be placed next to: "
+		mesh = "civ_crystal_mine.obj",
+		tiles = { grey, black },
+		groups = { cracky = 2, structure = 1 },
+		on_place = function(itemstack, placer, pointed_thing)
+			if civ.is_around(pointed_thing.above, c .. "stonepile") and civ.is_around(pointed_thing.above, c .. "road") then
+				minetest.set_node(pointed_thing.above, { name = c .. "crystal_mine" })
+				civ.change_resource_rate(c .. "crystal", 0.05)
+			else
+				minetest.chat_send_all(error_msg)
+			end
+		end,
+		on_dig = function(pos, node, digger)
+			civ.change_resource_rate(c .. "crystal", -0.05)
+			minetest.set_node(pos, { name = "air" })
+		end,
+	})
+]]--- 
 
 function civ.execute_event()
 	-- for x = -10, 10, 1 do

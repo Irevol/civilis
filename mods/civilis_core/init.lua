@@ -8,7 +8,7 @@ dofile(path .. "/menu.lua")
 dofile(path .. "/materials.lua")
 dofile(path .. "/terrain.lua")
 dofile(path .. "/crafting.lua")
-dofile(path .. "/structures.lua") --should be split into multiple documents (if not mods)
+dofile(path .. "/structures.lua") --should be split into multiple files (if not mods), probably should have civ.register_structure
 
 minetest.register_lbm({
 	label = "start timer",
@@ -19,8 +19,13 @@ minetest.register_lbm({
 		minetest.get_node_timer(pos):start(1)
 	end,
 })
-
-data:get_int("event_period")
+--basic definition stuff for structures
+for name, _ in minetest.registered_nodes do 
+	if minetest.get_item_group(name, "structure") then
+		minetest.override_item(name, {drawtype = "mesh", sunlight_propagates = true, paramtype = "light"})
+	end
+end
+--data:get_int("event_period")
 
 --
 --temporary
