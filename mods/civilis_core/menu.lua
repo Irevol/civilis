@@ -16,6 +16,6 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
 				minetest.place_schematic({x=0,y=0,z=0}, map..".mts")
 			end
 		end
-		player:set_pos({x=0,y=30,z=0})
+		player:set_pos({x=15,y=30,z=15})
 	end
 end)

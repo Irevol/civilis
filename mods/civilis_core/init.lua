@@ -8,7 +8,8 @@ dofile(path .. "/menu.lua")
 dofile(path .. "/materials.lua")
 dofile(path .. "/terrain.lua")
 dofile(path .. "/crafting.lua")
-dofile(path .. "/structures.lua") --should be split into multiple files (if not mods), probably should have civ.register_structure
+dofile(path .. "/special_structures.lua") -- structures that don't use register_structure
+dofile(path .. "/structures.lua")
 
 minetest.register_lbm({
 	label = "start timer",
@@ -19,17 +20,29 @@ minetest.register_lbm({
 		minetest.get_node_timer(pos):start(1)
 	end,
 })
---basic definition stuff for structures
-for name, _ in minetest.registered_nodes do 
-	if minetest.get_item_group(name, "structure") then
-		minetest.override_item(name, {drawtype = "mesh", sunlight_propagates = true, paramtype = "light"})
-	end
+data:set_string(c.."mine", '')
+
+--info page
+
+local function get_info_formspec()
+	local basemeta = minetest.get_meta(minetest.deserialize(data:get_string('basepos')))
+	return "image[0.5,0.5;1,1;civ_happiness.png]".. 
+	"label[1.5,0.5;Happiness:" .. basemeta:get_float("happiness")*100 .. "%\n(happiness affects resource rates)]"
 end
+
+sfinv.register_page(c .. 'info', {
+    title = 'Info',
+    get = function(self, player, context)
+        return sfinv.make_formspec(player, context, get_info_formspec(), true)
+    end
+})
+
 --data:get_int("event_period")
 
 --
 --temporary
 --
+
 minetest.register_node(c .. "grasst", {
 	description = "grasst",
 	tiles = { "civ_grass_small.png" },

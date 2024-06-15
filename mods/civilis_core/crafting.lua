@@ -3,7 +3,7 @@ local function get_selection_formspec()
     for i, recipe in ipairs(civ.recipes) do
         -- dont show unresearched recipes
         if data:get_string(recipe[2]) ~= '' then
-            local y_offset = (i - 1) * 1.1
+            local y_offset = (i - 1.9) * 1.1
             formspec = table.concat({formspec, 'item_image[0.5,' .. y_offset .. ';1,1;' .. recipe[2] .. ']', 'button[1.5,' .. y_offset .. ';5,1;' .. recipe[2] .. ';Craft ' .. recipe[1] .. ']'})
         end
     end
@@ -22,10 +22,11 @@ end
 
 local function get_materials_formspec()
     local basemeta = minetest.get_meta(minetest.deserialize(data:get_string('basepos')))
+    local happiness = basemeta:get_float("happiness")
     local formspec = ''
     for i, material in ipairs(civ.materials) do
         if (basemeta:get_float(material .. 'rate') ~= 0) and (basemeta:get_float(material .. 'rate') ~= '') then
-            local y_offset = (i - 1) * 1.1
+            local y_offset = (i - 1.7) * 1.1
             formspec = formspec .. 'item_image[1,' .. y_offset .. ';1,1;' .. material .. ']' .. 'label[2,' .. y_offset + 0.2 .. ';produced per a second: ' .. basemeta:get_float(material .. 'rate') .. ']'
         end
     end
@@ -45,7 +46,7 @@ local function get_research_formspec()
                 end
             end
             if flag then
-                local y_offset = (i - 1) * 1.1
+                local y_offset = (i - 1.2) * 1.1
                 formspec = formspec .. 'item_image[0.5,' .. y_offset .. ';1,1;' .. recipe[2] .. ']' .. 'button_exit[1.5,' .. y_offset .. ';5,1;' .. recipe[2] .. '_research;Unlock ' .. recipe[1] .. ' (costs ' .. recipe[5] .. ' research)]'
             end
         end
@@ -66,7 +67,7 @@ minetest.register_node(c .. 'timer', {
         local totaltime = meta:get_float('totaltime')
         local crafttime = meta:get_float('crafttime')
         meta:set_float('crafttime', meta:get_float('crafttime') + 0.2)
-        local formspec = 'size[9,5]' .. 'image[0.5,0.5;8,1;(progress_bar_background.png^[lowpart:' .. (crafttime / totaltime) * 100 .. ':civ_progress_bar.png)^[transformR270 ]'
+        local formspec = 'size[9,2]' .. 'image[0.4,0.5;10,1.25;(progress_bar_background.png^[lowpart:' .. (crafttime / totaltime) * 100 .. ':civ_progress_bar.png)^[transformR270 ]'
         if crafttime < totaltime then
             minetest.show_formspec(meta:get_string('player'), c .. 'timer', formspec)
             return true
@@ -83,21 +84,21 @@ minetest.register_node(c .. 'timer', {
 sfinv.register_page(c .. 'resources', {
     title = 'Resource Rates',
     get = function(self, player, context)
-        return sfinv.make_formspec(player, context, 'box[0.05,0.05;8,4.9;grey]' .. get_materials_formspec(), true)
+        return sfinv.make_formspec(player, context, 'box[0.05,0.05;8,4.9;]' .. 'scrollbaroptions[min=0;max=300;largestep=100,smallstep=10]' .. 'scrollbar[0,0;0.5,5;vertical;scrollbar;0]' .. 'scroll_container[0.2,0.4;11,5.7;scrollbar;vertical]' .. get_materials_formspec() .. 'scroll_container_end[]', true)
     end
 })
 
 sfinv.register_page(c .. 'structcraft', {
     title = 'Crafting',
     get = function(self, player, context)
-        return sfinv.make_formspec(player, context, 'box[0.05,0.05;8,4.9;grey]' .. 'scrollbaroptions[min=0;max=300;largestep=100,smallstep=10]' .. 'scrollbar[0,0;0.5,5;vertical;scrollbar;0]' .. 'scroll_container[0.2,0.4;11,5.7;scrollbar;vertical]' .. get_selection_formspec() .. 'scroll_container_end[]', true)
+        return sfinv.make_formspec(player, context, 'box[0.05,0.05;8,4.9;]' .. 'scrollbaroptions[min=0;max=300;largestep=100,smallstep=10]' .. 'scrollbar[0,0;0.5,5;vertical;scrollbar;0]' .. 'scroll_container[0.2,0.4;11,5.7;scrollbar;vertical]' .. get_selection_formspec() .. 'scroll_container_end[]', true)
     end
 })
 
 sfinv.register_page(c .. 'research', {
     title = 'Research',
     get = function(self, player, context)
-        return sfinv.make_formspec(player, context, 'box[0.05,0.05;8,4.9;grey]' .. 'scrollbaroptions[min=0;max=300;largestep=100,smallstep=10]' .. 'scrollbar[0,0;0.5,5;vertical;scrollbar;0]' .. 'scroll_container[0.2,0.4;11,5.7;scrollbar;vertical]' .. get_research_formspec() .. 'scroll_container_end[]', true)
+        return sfinv.make_formspec(player, context, 'box[0.05,0.05;8,4.9;]' .. 'scrollbaroptions[min=0;max=300;largestep=100,smallstep=10]' .. 'scrollbar[0,0;0.5,5;vertical;scrollbar;0]' .. 'scroll_container[0.2,0.4;11,5.7;scrollbar;vertical]' .. get_research_formspec() .. 'scroll_container_end[]', true)
     end
 })
 
@@ -139,22 +140,21 @@ function(player, formname, fields)
                     minetest.after(recipe[4], function(output)
                         inv:add_item('main', output)
                     end, recipe[2])
-				-- first "selection" form
+                -- first "selection" form
                 else
                     minetest.show_formspec(player:get_player_name(), c .. 'craft', get_crafting_formspec(recipe))
                 end
 			--research
             elseif recipe[2] .. '_research' == field then
-                local inv = minetest.get_inventory({
-                    type = 'player',
-                    name = player:get_player_name()
-                })
+                local inv = player:get_inventory()
                 if inv:contains_item('main', c .. 'research ' .. recipe[5]) then
                     data:set_string(recipe[2], 'researched')
                     inv:remove_item('main', c .. 'research ' .. recipe[5])
                 else
                     minetest.chat_send_all('You don\'t have enough research!')
                 end
+                -- reload inventory page
+                sfinv.set_page(player, c.."research")
             end
         end
     end
@@ -163,7 +163,7 @@ end)
 -----------------------------------------------------------------
 -- Register Recipes --
 
-civ.register_recipe('Mine', c .. 'mine', {c .. 'lumber 10'}, 3, 5, {})
-civ.register_recipe('Lumber Storehouse', c .. 'woodhouse', {c .. 'stone 10'}, 10, 5, {})
+civ.register_recipe('Mine', c .. 'mine', {c .. 'lumber 10', c.. "people 2"}, 3, 5, {})
+civ.register_recipe('Lumber Storehouse', c .. 'woodhouse', {c .. 'stone 10', c.. "people 2"}, 10, 5, {})
 civ.register_recipe('Well', c .. 'well', {c .. 'lumber 10'}, 10, 5, {})
-civ.register_recipe('Farm', c .. 'farm', {c .. 'lumber 10'}, 10, 5, {})
+civ.register_recipe('Farm', c .. 'farm', {c .. 'lumber 10', c.. "people 2"}, 10, 5, {})

@@ -143,7 +143,7 @@ function creative.register_tab(name, title, items)
 	sfinv.register_page("creative:" .. name, {
 		title = title,
 		is_in_nav = function(self, player, context)
-			return minetest.is_creative_enabled(player:get_player_name())
+			return true--minetest.is_creative_enabled(player:get_player_name()) or true
 		end,
 		get = function(self, player, context)
 			local player_name = player:get_player_name()

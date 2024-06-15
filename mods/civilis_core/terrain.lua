@@ -30,7 +30,7 @@ minetest.register_node(c.."grass", {
 	groups = {cracky=2}
 })
 minetest.register_node(c.."water", {
-	description = "water",
+	description = "Water",
 	tiles = {"civ_water.png"},
 	drawtype = "nodebox",
 	node_box = {
@@ -115,7 +115,7 @@ minetest.register_node(c.."stonyslope4", {
 })
 --terain models
 minetest.register_node(c.."forest", {
-	description = "forest",
+	description = "Forest",
 	drawtype = "mesh",
 	sunlight_propagates = true;
 	paramtype = "light";
@@ -124,7 +124,7 @@ minetest.register_node(c.."forest", {
 	groups = {cracky=2}
 })
 minetest.register_node(c.."stonepile", {
-	description = "stonepile",
+	description = "Rock Pile",
 	drawtype = "mesh",
 	sunlight_propagates = true;
 	paramtype = "light";
@@ -133,7 +133,7 @@ minetest.register_node(c.."stonepile", {
 	groups = {cracky=2}
 })
 minetest.register_node(c.."crystalpile", {
-	description = "crystalpile",
+	description = "Crystal Pile",
 	drawtype = "mesh",
 	sunlight_propagates = true;
 	paramtype = "light";
