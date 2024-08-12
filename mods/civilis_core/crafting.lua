@@ -151,7 +151,7 @@ function(player, formname, fields)
                     data:set_string(recipe[2], 'researched')
                     inv:remove_item('main', c .. 'research ' .. recipe[5])
                 else
-                    minetest.chat_send_all('You don\'t have enough research!')
+                    minetest.chat_send_all("You don't have enough research!")
                 end
                 -- reload inventory page
                 sfinv.set_page(player, c.."research")

@@ -1,54 +1,57 @@
-function civ.is_around(pos, targetname)
+function civ.is_around(pos, targetname, radius)
     local found = 0
-    pos.x = pos.x - 1
-    if minetest.get_node(pos).name == targetname then
-        found = found + 1
+    local radius = radius or 1
+    for x = -radius, radius do
+        for z = -radius, radius do
+            local check_pos = {
+                x = pos.x + x,
+                y = pos.y,
+                z = pos.z + z
+            }
+            if minetest.get_node(pos).name == targetname then
+                found = found + 1 
+            end
+        end
     end
-    pos.x = pos.x + 2
-    if minetest.get_node(pos).name == targetname then
-        found = found + 1
-    end
-    pos.x = pos.x - 1
-    pos.z = pos.z - 1
-    if minetest.get_node(pos).name == targetname then
-        found = found + 1
-    end
-    pos.z = pos.z + 2
-    if minetest.get_node(pos).name == targetname then
-        found = found + 1
-    end
-    pos.z = pos.z - 1
     return found
 end
 
 function civ.get_surrounding_structs(pos, radius)
+    local radius = radius or 1
     local structs = {}
     for x = -radius, radius do
         for z = -radius, radius do
-            for y = -1, 1 do
-                local check_pos = {
-                    x = pos.x + x,
-                    y = pos.y + y,
-                    z = pos.z + z
-                }
-                if civ.is_structure(check_pos) then
-                    table.insert(structs, minetest.get_node(check_pos).name)
-                end
+            local check_pos = {
+                x = pos.x + x,
+                y = pos.y,
+                z = pos.z + z
+            }
+            if civ.is_structure(check_pos) then
+                   table.insert(structs, minetest.get_node(check_pos).name)
             end
         end
     end
     return structs
 end
 
-function civ.change_resource_rate(resource, amount)
-    local basemeta = minetest.get_meta(minetest.deserialize(data:get_string("basepos")))
-    basemeta:set_float(resource .. "rate", basemeta:get_float(resource .. "rate") + amount)
-    minetest.chat_send_all("hmm")
-end
-
 function civ.get_resource_rate(resource)
     local basemeta = minetest.get_meta(minetest.deserialize(data:get_string("basepos")))
-    return basemeta:get_float(resource .. "rate")
+    local net_rate = 0
+    for _, link in pairs(minetest.deserialize(basemeta:get_string("links"))) do
+        for item, rate in link.consumes do
+            if item == resource then
+                net_rate = net_rate - rate
+                break
+            end
+        end
+        for item, rate in link.produces do
+            if item == resource then
+                net_rate = net_rate + rate
+                break
+            end
+        end
+    end
+    return net_rate
 end
 
 function civ.highlight(text)
@@ -73,13 +76,11 @@ end
 minetest.register_on_placenode(function(pos, newnode, placer, oldnode, itemstack, pointed_thing)
     for x = -3, 3 do
         for z = -3, 3 do
-            for y = -1, 1 do
-                civ.update_node({
-                    x = pos.x + x,
-                    y = pos.y + y,
-                    z = pos.z + z
-                })
-            end
+            civ.update_node({
+                x = pos.x + x,
+                y = pos.y + y,
+                z = pos.z + z
+            })
         end
     end
     return true
@@ -114,8 +115,36 @@ function civ.get_happiness()
     return basemeta:get_float("happiness")
 end
 
+function civ.register_link(consumed, produced)
+    local active = active or true
+    local basemeta = minetest.get_meta(minetest.deserialize(data:get_string("basepos")))
+    basemeta:set_string(minetest.serialize(table.insert(minetest.deserialize(basemeta:get_string("links")), {consumes=def.consumes or {}, produces=def.produces})))
+end
+
+function civ.unregister_link(consumed, produced)
+    local links = minetest.deserialize(basemeta:get_string("links"))
+    local basemeta = minetest.get_meta(minetest.deserialize(data:get_string("basepos")))
+    for i, link in minetest.deserialize(basemeta:get_string("links")) do
+        if link[1] == consumed and link[2] == produced then
+            table.remove(links, i)
+        end
+    end
+    basemeta:set_string(minetest.serialize(links))
+end
+
+local function get_actual_production(count, dependant_produces, produces)
+    for item, rate in dependant_produces do
+        produces[item] = rate*count + (produces[item] or 0)
+    end
+    return produces
+end
+
 function civ.register_structure(def)
+
     local desc = civ.highlight(def.description) .. "\n"
+    def.consumes = def.consumes or {}
+    def.produces = def.produces or {}
+
     if def.location_requirements then
         desc = desc .. "\nMust be placed next to:"
         for node, num in pairs(def.location_requirements) do
@@ -128,16 +157,25 @@ function civ.register_structure(def)
             desc = desc .. "\n\t" .. num .. "  " .. civ.highlight(short_description)
         end
     end
-    if def.consumption_requirements then
+    --consumes
+    if def.consumes then
         desc = desc .. "\nConsumes:"
-        for item, rate in pairs(def.consumption_requirements) do
+        for item, rate in pairs(def.consumes) do
             desc = desc .. "\n\t" .. rate .. " " .. minetest.registered_items[item].description .. " per second"
         end
     end
-    desc = desc .. "\nProduces:"
-    for item, rate in pairs(def.produces) do
-        desc = desc .. "\n\t" .. rate .. " " .. minetest.registered_items[item].description .. " per second"
+    --produces
+    if def.produces then
+        desc = desc .. "\nProduces:"
+        for item, rate in pairs(def.produces) do
+            desc = desc .. "\n\t" .. rate .. " " .. minetest.registered_items[item].description .. " per second"
+        end 
     end
+    --extra
+    if def.extra_description then
+        desc = desc .. "\n"+extra_description
+    end
+
     minetest.register_node(def.name, {
         description = desc,
         mesh = def.mesh,
@@ -154,58 +192,77 @@ function civ.register_structure(def)
             -- check requirements
             if def.location_requirements then
                 for node, num in pairs(def.location_requirements) do
-                    if civ.is_around(pointed_thing.above, node) < num then
-                        minetest.chat_send_all("You can't place that here...")
-                        return
-                    end
-                end
-            end
-            if def.consumption_requirements then
-                for item, rate in pairs(def.consumption_requirements) do
-                    if civ.get_resource_rate(item) < rate then
-                        minetest.chat_send_all("You are not producing enough " .. minetest.registered_items[item].description .. " to build this...")
-                        return
+                    if node == "water" then
+                        if civ.is_around_water(pointed_thing.above) < num then
+                            minetest.chat_send_all("You can't place that here...")
+                            return                           
+                        end
+                    else
+                        if civ.is_around(pointed_thing.above, node) < num then
+                            minetest.chat_send_all("You can't place that here...")
+                            return
+                        end
                     end
                 end
             end
             -- then go
-            for item, rate in pairs(def.produces) do
-                civ.change_resource_rate(item, rate)
-            end
-            if def.consumption_requirements then
-                for item, rate in pairs(def.consumption_requirements) do
-                    civ.change_resource_rate(item, -rate)
-                end
-            end
-            minetest.set_node(pointed_thing.above, {
-                name = def.name
-            })
+            minetest.item_place_node(itemstack, placer, pointed_thing)
+            if def.dependant_produces then
+                local count = def.dependant_count(pos)
+                civ.register_link(def.consumes, get_actual_production(count, def.dependant_produces, def.produces))
+                meta:set_int("last_struct_count", count)
+            else
+                civ.register_link(def.consumes or {}, def.produces)
+            end     
         end,
         on_dig = function(pos, node, digger)
-            for item, rate in pairs(def.produces) do
-                civ.change_resource_rate(item, -rate)
+            if def.dependant_produces then
+                civ.unregister_link(def.consumes, get_actual_production(meta:get_int("last_struct_count"), def.dependant_produces, def.produces))
+            else
+                civ.unregister_link(def.consumes, def.produces)
             end
-            if def.consumption_requirements then
-                for item, rate in pairs(def.consumption_requirements) do
-                    civ.change_resource_rate(item, rate)
-                end
+            minetest.dig_node(pos, digger)
+        end,
+        _update = function(pos)
+            if def.dependant_produces then
+                local meta = minetest.get_meta(pos)
+                local count = def.dependant_count(pos)
+                civ.register_link(def.consumes, get_actual_production(count, def.dependant_produces, def.produces))
+                civ.unregister_link(def.consumes, get_actual_production(meta:get_int("last_struct_count"), def.dependant_produces, def.produces))
+                meta:set_int("last_struct_count", count)
             end
-            minetest.set_node(pos, {
-                name = "air"
-            })
         end
     })
 end
 
-function civ.execute_event()
-    -- for x = -10, 10, 1 do
-    -- for z = -10, 10, 1 do
-    -- local pos = {x=pos.x+x,y=pos.y,z=pos.z+z}
-    -- local node = minetest.get_node(pos)
-    -- if not civ.is_structure(pos) then
-    -- if node.name == c.."stoneblock" or node.name == c.."stonegrass" then
-    -- minetest.set_node(pos, {name == "air"})
+function civ.get_fall_chance(pos)
+    local structs = civ.get_surrounding_structs(pos, 2)
+    local basemeta = minetest.get_meta(minetest.deserialize(data:get_string("basepos")))
+    local chance = basemeta:get_int("fall_chance")
+    for struct in structs do 
+        if struct == c.."anchor" then
+            chance = chance - 1
+        end
+        if chance < 0 then
+            chance = 0
+        end
+    end
+    return chance
+end
 
-    -- end
-    -- end
+function civ.execute_event()
+    for x = -12, 12 do
+        for z = -12, 12 do
+            local pos = {x=pos.x+x,y=pos.y,z=pos.z+z}
+            local node = minetest.get_node(pos)
+            local chance = civ.get_fall_chance()
+            if civ.is_around(pos, "air") and (node.name == c.."stoneblock" or node.name == c.."stonegrass") then
+                if math.random(0, chance) == 1 then
+                    for y=-3, 3 do
+                         minetest.set_node({x=pos.x,y=pos.y+y,z=pos.z}, {name == "air"})
+                    end
+                end
+             end
+        end
+    end
 end

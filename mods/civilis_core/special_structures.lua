@@ -15,6 +15,16 @@ local dark_grey = "civ_white.png^[colorize:#424242:" .. strength
 local error_msg = "You can't place that here..."
 
 -- Base
+
+-- local function has_index(tab, ind)
+--     for index, _ in ipairs(tab) do
+--         if index == ind then
+--             return true
+--         end
+--     end
+--     return false
+-- end
+
 minetest.register_node(c .. "base", {
     description = civ.highlight("Base"),
 	drawtype = "mesh", 
@@ -33,32 +43,49 @@ minetest.register_node(c .. "base", {
         for _, material in ipairs(civ.materials) do
             meta:set_float(material .. "rate", 0)
             meta:set_float(material .. "excess", 0)
-        end
+		end
+		meta:set_string("links", minetest.serialize({}))
 		meta:set_float("happiness", 1)
-        meta:set_int("eventtimer", 0)
         -- future multiplayer functionality, perhaps?
         meta:set_string("player", "singleplayer")
     end,
     on_timer = function(pos)
         local meta = minetest.get_meta(pos)
         local inv = minetest.get_player_by_name(meta:get_string("player")):get_inventory()
-        for _, material in ipairs(civ.materials) do
-            local rate = meta:get_float(material .. "rate")
+		local links = minetest.deserialize(meta:get_string("links"))
+		local happiness = meta:get_float("happiness")
+
+        for _, link in ipairs(links) do
+			--check if resources are avaliable
+			local resources_avaliable = true
+			for item, rate in link.consumes do
+				if not inv:contains_item("main", item) then
+					resources_avaliable = false
+					break
+				end
+			end 
+			--if they are, do stuff
+            if resources_avaliable then
+				for item, rate in link.consumes do 
+					meta:set_float(item.."excess", meta:get_float(item.."excess")-rate*happiness)
+				end
+				for item, rate in link.produces do 
+					meta:set_float(item.."excess", meta:get_float(item.."excess")+rate*happiness)
+				end
+			end
+        end
+
+		for _, material in ipairs(civ.materials) do
             local excess = meta:get_float(material .. "excess")
-			local happiness = meta:get_float("happiness")
-            excess = excess + rate*happiness
             while excess >= 1 do
                 excess = excess - 1
                 inv:add_item("main", material)
             end
+			while excess <= -1 do
+				excess = excess + 1
+				inv:remove_item("main", material)
+			end
             meta:set_float(material .. "excess", excess)
-        end
-
-        if meta:get_int("eventtimer") < data:get_int("event_period") then
-            meta:set_int("eventtimer", meta:get_int("eventtimer") + 1)
-        else
-            meta:set_int("eventtimer", 0)
-            -- civ.execute_event()
         end
 
         return true
@@ -70,7 +97,9 @@ minetest.register_node(c .. "base", {
 
 --Road
 minetest.register_node(c .. "road", {
-	description = civ.highlight("Road") .. "\n\n\t Must be placed next to another " .. civ.highlight("Road") .. "," .. civ.highlight("Stair") .. ", or your " .. civ.highlight("Base") .. ". \n\t Can not be placed next to cliffs",
+	description = civ.highlight("Road") .. 
+	"\n\n\t Must be placed next to another " .. civ.highlight("Road") .. "," .. civ.highlight("Stair") .. ", or your " .. civ.highlight("Base") .. 
+	"\n\t Can not be placed next to cliffs",
 	inventory_image = "road_straight.png",
 	wield_image = "road_straight.png",
 	drawtype = "raillike",
@@ -166,7 +195,9 @@ minetest.register_node(c .. "stair4", {
 
 --Power Line
 minetest.register_node(c .. "power_line", {
-	description = civ.highlight("Power Line") .. "\n\n\t Must be placed next to another " .. civ.highlight("Power Line") .. " or a " .. civ.highlight("Power Plant") .. ". \n\t Can not be placed next to cliffs",
+	description = civ.highlight("Power Line") .. 
+	"\n\n\t Must be placed next to another " .. civ.highlight("Power Line") .. " or a " .. civ.highlight("Power Plant") .. 
+	"\n\t Can not be placed next to cliffs",
 	inventory_image = "road_straight.png",
 	wield_image = "power_straight.png",
 	drawtype = "raillike",
@@ -188,55 +219,43 @@ minetest.register_node(c .. "power_line", {
 	end,
 })
 
---Lumber Mill
-minetest.register_node(c .. "lumbermill", {
-	description = civ.highlight("Lumber Mill") .. "\n\n\t Must be placed next to a " .. civ.highlight("Road") .. " and " .. civ.highlight("water") .. "\n\t Increases the productivity of surrounding ".. civ.highlight("Lumber Storehouses"),
-	mesh = "woodhouse.obj",
-	tiles = { "civ_wood.png", black, grey, pink, brown },
-	groups = { cracky = 2, structure = 1 },
-	drawtype = "mesh", 
-    sunlight_propagates = true, 
-    paramtype = "light",
-	on_place = function(itemstack, placer, pointed_thing)
-		if civ.is_around_water(pointed_thing.above) and civ.is_around(pointed_thing.above, c .. "road") then
-			minetest.set_node(pointed_thing.above, { name = c .. "lumbermill" })
-			civ.change_resource_rate(c .. "lumber", 0.4)
-		else
-			minetest.chat_send_all(error_msg)
-		end
-	end,
-	on_dig = function(pos, node, digger)
-		civ.change_resource_rate(c .. "lumber", -0.4)
-		minetest.set_node(pos, { name = "air" })
-	end,
-})
-
 --People
-minetest.register_node(c .. "house", {
-	description = civ.highlight("House") .. "\n\n\t Must be placed next to a " .. civ.highlight("Road") .. "\n\t Gives 10 People, " .. civ.highlight("can not be destroyed"),
+minetest.register_node(c .. "tent", {
+	description = civ.highlight("Tent") .. 
+	"\n\n\t Must be placed next to a " .. civ.highlight("Water") .. 
+	"\n\t Gives 5 People",
 	mesh = "woodhouse.obj",
 	tiles = { "civ_wood.png", black, grey, pink, brown },
-	groups = { cracky = 2, structure = 1 },
+	groups = { cracky = 2, structure = 1, home = 1 },
 	drawtype = "mesh", 
     sunlight_propagates = true, 
     paramtype = "light",
 	on_place = function(itemstack, placer, pointed_thing)
-		if civ.is_around(pointed_thing.above, c .. "road") then
+		if civ.is_around_water(pos) then
 			minetest.set_node(pointed_thing.above, { name = c .. "house" })
-			placer:get_inventory():add_item(c.."people 10")
+			placer:get_inventory():add_item(c.."people 5")
 		else
 			minetest.chat_send_all(error_msg)
 		end
 	end,
 	on_dig = function(pos, node, digger)
-		
-	end,
+		inv = placer:get_inventory()
+		if inv:contains_item("main", c .. "people 5") then
+			inv:remove_item("main", c .. "people 5")
+			minetest.dig_node(pos, digger)
+		else
+			minetest.chat_send_all("You need at least 5 people to remove this structure")
+			return false
+		end
+	end
 })
 minetest.register_node(c .. "house", {
-	description = civ.highlight("House") .. "\n\n\t Must be placed next to a " .. civ.highlight("Road") .. "\n\t Gives 10 People, " .. civ.highlight("can not be destroyed"),
-	mesh = "woodhouse.obj",
+	description = civ.highlight("House") .. 
+	"\n\n\t Must be placed next to a " .. civ.highlight("Road") .. 
+	"\n\t Gives 10 People",
+	mesh = "civ_house.obj",
 	tiles = { "civ_wood.png", black, grey, pink, brown },
-	groups = { cracky = 2, structure = 1 },
+	groups = { cracky = 2, structure = 1, home = 1 },
 	drawtype = "mesh", 
     sunlight_propagates = true, 
     paramtype = "light",
@@ -249,13 +268,53 @@ minetest.register_node(c .. "house", {
 		end
 	end,
 	on_dig = function(pos, node, digger)
-		return false
+		inv = placer:get_inventory()
+		if inv:contains_item("main", c .. "people 10") then
+			inv:remove_item("main", c .. "people 10")
+			minetest.dig_node(pos, digger)
+		else
+			minetest.chat_send_all("You need at least 10 people to remove this structure")
+			return false
+		end
 	end,
+})
+minetest.register_node(c .. "apartment", {
+	description = civ.highlight("Apartment") .. 
+	"\n\n\t Must be placed next to a " .. civ.highlight("Power Line") .. 
+	"\n\t Gives 20 People",
+	mesh = "civ_apartment.obj",
+	tiles = { "civ_wood.png", black, grey, pink, brown },
+	groups = { cracky = 2, structure = 1, home = 1 },
+	drawtype = "mesh", 
+    sunlight_propagates = true, 
+    paramtype = "light",
+	on_place = function(itemstack, placer, pointed_thing)
+		if civ.is_around(pointed_thing.above, c .. "power_line") then
+			minetest.set_node(pointed_thing.above, { name = c .. "apartment" })
+			placer:get_inventory():add_item(c.."people 20")
+		else
+			minetest.chat_send_all(error_msg)
+		end
+	end,
+	on_dig = function(pos, node, digger)
+		on_dig = function(pos, node, digger)
+			inv = placer:get_inventory()
+			if inv:contains_item("main", c .. "people 20") then
+				inv:remove_item("main", c .. "people 20")
+				minetest.dig_node(pos, digger)
+			else
+				minetest.chat_send_all("You need at least 20 people to remove this structure")
+				return false
+			end
+		end
+	end
 })
 
 --Happiness
 minetest.register_node(c .. "flowers", {
-	description = civ.highlight("Flowers") .. "\n\n\t Must be placed next to " .. civ.highlight("Water") .. "\n\t Adds 2% happiness",
+	description = civ.highlight("Flowers") .. 
+	"\n\n\t Must be placed next to " .. civ.highlight("Water") .. 
+	"\n\t Adds 2% happiness",
 	drawtype = "mesh",
 	mesh = "civ_flowers.obj",
 	tiles = { pink, blue, yellow, orange, yellow, brown, "civ_grass_small.png" },
@@ -265,18 +324,41 @@ minetest.register_node(c .. "flowers", {
 	on_place = function(itemstack, placer, pointed_thing)
 		if civ.is_around_water(pointed_thing.above) then
 			minetest.set_node(pointed_thing.above, { name = c .. "flowers" })
-			--civ.change_happiness(0.02)
+			civ.change_happiness(0.02)
 		else
 			minetest.chat_send_all(error_msg)
 		end
 	end,
 	on_dig = function(pos, node, digger)
-		--civ.change_happiness(-0.02)
+		civ.change_happiness(-0.02)
+		minetest.set_node(pos, { name = "air" })
+	end,
+})
+minetest.register_node(c .. "flowers", {
+	description = civ.highlight("Flowers") .. 
+	"\n\n\t Must be placed next to " .. civ.highlight("Water") .. 
+	"\n\t Adds 2% happiness",
+	drawtype = "mesh",
+	mesh = "civ_flowers.obj",
+	tiles = { pink, blue, yellow, orange, yellow, brown, "civ_grass_small.png" },
+	groups = { cracky = 2, structure = 1 }, 
+    sunlight_propagates = true, 
+    paramtype = "light",
+	on_place = function(itemstack, placer, pointed_thing)
+		if civ.is_around_water(pointed_thing.above) then
+			minetest.set_node(pointed_thing.above, { name = c .. "flowers" })
+			civ.change_happiness(0.02)
+		else
+			minetest.chat_send_all(error_msg)
+		end
+	end,
+	on_dig = function(pos, node, digger)
+		civ.change_happiness(-0.02)
 		minetest.set_node(pos, { name = "air" })
 	end,
 })
 
---Well
+--Other
 minetest.register_node(c .. "well", {
 	description = civ.highlight("Well") .. "\n\n\t No placement requirements. \n\t Acts as water",
 	mesh = "civ_well.obj",
@@ -287,35 +369,21 @@ minetest.register_node(c .. "well", {
     paramtype = "light"
 })
 
---Library
-minetest.register_node(c .. "library", {
-	description = civ.highlight("Library") .. "\n\n\t Must be placed next to a " .. civ.highlight("Road") .. ". \n\t Produces research based on how many structures are within a 2 block radius of it",
-	drawtype = "mesh", 
+minetest.register_node(c .. "market", {
+	description = civ.highlight("Market") ..
+	"\n\n\t Must be placed next to a " .. civ.highlight("Road") .. 
+	"\n\t Enables the placement of some buildings",
+	mesh = "civ_market.obj",
+	tiles = { cyan, grey, "civ_wood.png" },
+	groups = { cracky = 2, structure = 1 },
+	drawtype = "mesh",
     sunlight_propagates = true, 
     paramtype = "light",
-	mesh = "civ_library.obj",
-	tiles = { grey, dark_grey, dark_green, black, yellow, brown,"civ_wood.png"},
-	groups = { cracky = 2, structure = 1 },
 	on_place = function(itemstack, placer, pointed_thing)
-		local meta = minetest.get_meta(pointed_thing.above)
 		if civ.is_around(pointed_thing.above, c .. "road") then
-			minetest.set_node(pointed_thing.above, { name = c .. "library" })
-			civ.change_resource_rate(c .. "research", 0.1 * #civ.get_surrounding_structs(pointed_thing.above, 2))
-			meta:set_int("last_struct_count", #civ.get_surrounding_structs(pointed_thing.above, 2))
+			minetest.set_node(pointed_thing.above, { name = c .. "market" })
 		else
 			minetest.chat_send_all(error_msg)
 		end
-	end,
-	on_dig = function(pos, node, digger)
-		local meta = minetest.get_meta(pos)
-		civ.change_resource_rate(c .. "research", -0.1 * meta:get_int("last_struct_count"))
-		minetest.set_node(pos, { name = "air" })
-	end,
-	_update = function(pos)
-		local meta = minetest.get_meta(pos)
-		local struct_num = #civ.get_surrounding_structs(pos, 2)
-		civ.change_resource_rate(c .. "research", -0.1 * meta:get_int("last_struct_count"))
-		civ.change_resource_rate(c .. "research", 0.1 * struct_num)
-		meta:set_int("last_struct_count", struct_num)
 	end,
 })

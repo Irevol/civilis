@@ -50,9 +50,32 @@ civ.register_structure({
         [c .. "forest"] = 1,
         [c .. "power_line"] = 1
     },
-    consumption_requirements = {
+    consumes = {
         [c .. "power"] = 0.1
     }
+})
+civ.register_structure({
+    name = c .. "mill",
+    description = "Lumber Mill",
+    extra_description = "Increases the output of adjacent and diagnol Lumber Storehouses",
+    mesh = "civ_library.obj",
+    tiles = {"civ_wood.png", brown, pink, grey},
+    location_requirements = {
+        [c .. "water"] = 1,
+    },
+    dependant_produces = {
+        [c .. "wood"] = 0.1
+    },
+    dependant_count = function(pos)
+        structs = civ.get_surrounding_structs(pos,1)
+        local counter = 0
+        for struct in structs do
+            if struct == c.."woodhouse" or struct == c.."woodhouse2" or struct == c.."woodhouse3" then
+                counter = counter + 1
+            end
+        end
+        return counter
+    end,
 })
 
 -- Mine
@@ -88,11 +111,14 @@ civ.register_structure({
     mesh = "civ_mine3.obj",
     tiles = {grey, black, yellow},
     produces = {
-        [c .. "stone"] = 0.5
+        [c .. "stone"] = 0.6
     },
     location_requirements = {
         [c .. "stonepile"] = 1,
         [c .. "power_line"] = 1
+    },
+    consumes = {
+        [c .. "power"] = 0.2,
     },
 })
 
@@ -106,9 +132,9 @@ civ.register_structure({
         [c .. "metal"] = 0.1
     },
     location_requirements = {
-        [c .. "road"] = 2
+        [c .. "road"] = 1
     },
-    consumption_requirements = {
+    consumes = {
         [c .. "stone"] = 0.5,
         [c .. "coal"] = 0.2
     }
@@ -118,18 +144,17 @@ civ.register_structure({
 civ.register_structure({
     name = c .. "workshop",
     description = "Workshop",
-    mesh = "civ_refinery.obj",
+    mesh = "civ_workshop.obj",
     tiles = {grey, black, yellow},
     produces = {
-        [c .. "metal"] = 0.1
+        [c .. "machine_part"] = 0.2
     },
     location_requirements = {
-        [c .. "road"] = 2,
-        [c .. "road"] = 2
+        [c .. "road"] = 1
     },
-    consumption_requirements = {
-        [c .. "metal"] = 0.2,
-        [c .. "coal"] = 0.1
+    consumes = {
+        [c .. "metal"] = 0.1,
+        [c .. "lumber"] = 0.3
     }
 })
 
@@ -137,16 +162,33 @@ civ.register_structure({
 civ.register_structure({
     name = c .. "coal_mine",
     description = "Coal Mine",
-    mesh = "civ_mine.obj",
+    mesh = "civ_coal_mine.obj",
     tiles = {grey, black},
     produces = {
         [c .. "coal"] = 0.1
     },
     location_requirements = {
-        [c .. "road"] = 2,
-        [c .. "stonepile"] = 1
+        [c .. "road"] = 1,
+        [c .. "stonepile"] = 1,
+        ["water"] = 1
     },
-    consumption_requirements = nil
+})
+civ.register_structure({
+    name = c .. "coal_mine2",
+    description = "Industrial Coal Mine",
+    mesh = "civ_coal_mine2.obj",
+    tiles = {grey, black},
+    produces = {
+        [c .. "coal"] = 0.2
+    },
+    location_requirements = {
+        [c .. "power_line"] = 2,
+        [c .. "stonepile"] = 1,
+        ["water"] = 1
+    },
+    consumes = {
+        [c .. "power"] = 0.1,
+    },
 })
 
 -- Crystals
@@ -162,7 +204,6 @@ civ.register_structure({
         [c .. "road"] = 2,
         [c .. "stonepile"] = 1
     },
-    consumption_requirements = nil
 })
 civ.register_structure({
     name = c .. "crystal_house",
@@ -176,21 +217,21 @@ civ.register_structure({
         [c .. "road"] = 2,
         [c .. "forest"] = 1
     },
-    consumption_requirements = nil
 })
 civ.register_structure({
-    name = c .. "crystal_house",
-    description = "Crystal Storehouse",
-    mesh = "civ_crystal_house.obj",
+    name = c .. "temple",
+    description = "Crystal Temple",
+    mesh = "civ_temple.obj",
     tiles = {grey, black},
     produces = {
-        [c .. "crystal"] = 0.05
+        [c .. "infused_crystal"] = 0.05,
     },
     location_requirements = {
-        [c .. "road"] = 2,
-        [c .. "forest"] = 1
+        ["air"] = 3,
     },
-    consumption_requirements = nil
+    consumes =  {
+        [c .. "crystal"] = 0.1,
+    },
 })
 
 -- Farm
@@ -204,9 +245,9 @@ civ.register_structure({
     },
     location_requirements = {
         [c .. "road"] = 1,
-        [c .. "water"] = 2
+        ["water"] = 2
     },
-    consumption_requirements = nil
+    
 })
 civ.register_structure({
     name = c .. "farm2",
@@ -217,11 +258,10 @@ civ.register_structure({
         [c .. "grain"] = 0.5
     },
     location_requirements = {
-        [c .. "road"] = 1,
-        [c .. "water"] = 2,
+        ["water"] = 2,
         [c .. "power_line"] = 1
     },
-    consumption_requirements = {
+    consumes = {
         [c .. "power"] = 0.3
     }
 })
@@ -233,13 +273,13 @@ civ.register_structure({
     mesh = "civ_power_plant.obj",
     tiles = {grey, brown, black, dark_grey, yellow},
     produces = {
-        [c .. "power"] = 0.5
+        [c .. "power"] = 0.4
     },
     location_requirements = {
         [c .. "road"] = 1,
-        [c .. "water"] = 1
+        ["water"] = 1
     },
-    consumption_requirements = {
+    consumes = {
         [c .. "coal"] = 0.3
     }
 })
@@ -249,12 +289,87 @@ civ.register_structure({
     mesh = "civ_power_plant_crystal.obj",
     tiles = {"civ_wood.png", brown, pink, grey},
     produces = {
-        [c .. "power"] = 0.75
+        [c .. "power"] = 0.8
     },
     location_requirements = {
         [c .. "road"] = 1,
     },
-    consumption_requirements = {
+    consumes = {
         [c .. "crystal"] = 0.1
     }
+})
+
+--Research
+civ.register_structure({
+    name = c .. "lab",
+    description = "Labratory",
+    mesh = "civ_lab.obj",
+    tiles = {"civ_wood.png", brown, pink, grey},
+    produces = {
+        [c .. "research"] = 0.3
+    },
+    location_requirements = {
+        [c .. "road"] = 1,
+    },
+    consumes = {
+        [c .. "lumber"] = 0.05,
+        [c .. "stone"] = 0.05,
+        [c .. "machine_part"] = 0.05,
+        [c .. "metal"] = 0.05,
+    }
+})
+civ.register_structure({
+    name = c .. "monk",
+    description = "Monestary",
+    mesh = "civ_monk.obj",
+    tiles = {"civ_wood.png", brown, pink, grey},
+    produces = {
+        [c .. "research"] = 0.2
+    },
+    location_requirements = {
+        ["air"] = 4,
+    },
+    consumes = {
+        [c .. "grain"] = 0.1,
+        [c .. "lumber"] = 0.1,
+    }
+})
+civ.register_structure({
+    name = c .. "school",
+    description = "School",
+    extra_description = "Produces research based on how many homes are within a 2 block radius of it",
+    mesh = "civ_school.obj",
+    tiles = {"civ_wood.png", brown, pink, grey},
+    location_requirements = {
+        [c .. "road"] = 1,
+    },
+    dependant_produces = {
+        [c .. "research"] = 0.2
+    },
+    dependant_count = function(pos)
+        structs = civ.get_surrounding_structs(pos,2)
+        local counter = 0
+        for struct in structs do
+            if minetest.get_item_group(struct, "home") == 1 then
+                counter = counter + 1
+            end
+        end
+        return counter
+    end,
+})
+civ.register_structure({
+    name = c .. "library",
+    description = "Library",
+    extra_description = "Produces research based on how many structures are within a 2 block radius of it",
+    mesh = "civ_library.obj",
+    tiles = {"civ_wood.png", brown, pink, grey},
+    location_requirements = {
+        [c .. "road"] = 1,
+    },
+    dependant_produces = {
+        [c .. "research"] = 0.1
+    },
+    dependant_count = function(pos)
+        return #civ.get_surrounding_structs(pos, 2)
+    end,
 })
